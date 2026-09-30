@@ -1,60 +1,58 @@
-# TabPFN Titanic A2A agent
+# HANA-to-TabPFN Comparison
 
-This service exposes a Titanic-survival classifier through the A2A JSON-RPC
-protocol.
+Fetch a labeled table from SAP HANA, predict through the SAP AI Core TabPFN
+deployment, and compare accuracy with Random Forest, SVM, and Logistic
+Regression.
 
-## Run locally
+## Project structure
 
-Use Python 3.10 or newer. Create and activate a virtual environment, then:
+- `config.py` — `.env` loading and configuration helpers.
+- `hana_client.py` — secure HANA table reader.
+- `sap_ai_core.py` — SAP AI Core OAuth and TabPFN deployment client.
+- `comparison.py` — shared train/holdout comparison logic.
+- `run_hana_comparison.py` — command-line entry point.
+- `main.py` — one FastAPI comparison route.
+
+## `.env`
+
+```text
+HANA_HOST=...
+HANA_PORT=443
+HANA_USER=...
+HANA_PASSWORD=...
+HANA_SCHEMA=...
+
+AICORE_AUTH_URL=...
+AICORE_CLIENT_ID=...
+AICORE_CLIENT_SECRET=...
+AICORE_API_URL=...
+AICORE_RESOURCE_GROUP=default
+TABPFN_DEPLOYMENT_ID=...
+```
+
+For HANA Cloud, encrypted connections are enabled by default. Set
+`HANA_SSL_VALIDATE_CERTIFICATE=false` only when your environment requires it.
+
+## Run
 
 ```powershell
 pip install -r requirements.txt
-python main.py
+python run_hana_comparison.py --table YOUR_TABLE --target YOUR_TARGET_COLUMN
 ```
 
-The included `Titanic-Dataset.csv` is used automatically. The first prediction
-still downloads and caches TabPFN's model checkpoint, so it can take longer
-than later requests. To use another dataset, set `TITANIC_DATA_PATH` to a CSV
-with `Survived`, `Pclass`, `Sex`, `Age`, `SibSp`, `Parch`, and `Fare` columns.
+The command reads `HANA_SCHEMA.YOUR_TABLE`, creates one reproducible 80/20
+holdout split, writes predictions and all accuracy scores to `comparison.json`,
+and prints the model comparison.
 
-## Test the A2A agent
+## FastAPI route
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8080/health
-Invoke-RestMethod http://127.0.0.1:8080/.well-known/agent-card.json
+uvicorn main:app --host 0.0.0.0 --port 8080
 ```
 
-```powershell
-$body = @{
-  jsonrpc = "2.0"; id = "demo-1"; method = "message/send"
-  params = @{ message = @{
-    kind = "message"; messageId = "message-1"; role = "user"
-    parts = @(@{ kind = "text"; text = "Would a 30 year old woman in first class survive?" })
-  }}
-} | ConvertTo-Json -Depth 10
+Call `POST /compare` with only the target column. The table name comes from
+`HANA_TABLE` in `.env`:
 
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/ `
-  -ContentType "application/json" -Body $body
+```json
+{"target_column": "Survived"}
 ```
-
-## Use the REST prediction route
-
-For applications that do not need A2A, send the same passenger fields to
-`POST /predict`:
-
-```powershell
-$passengers = @{
-  passengers = @(@{ Pclass = 1; Sex = "female"; Age = 30; SibSp = 0; Parch = 0; Fare = 80 })
-} | ConvertTo-Json -Depth 5
-
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/predict `
-  -ContentType "application/json" -Body $passengers
-```
-
-`Pclass` (1–3) and `Sex` (`male` or `female`) are required. `Age`, `SibSp`,
-`Parch`, and `Fare` are optional; reasonable values from the training data are
-used when they are omitted.
-
-Set `A2A_API_KEY` before startup to protect calls (use `X-API-Key` on the
-request), and set `A2A_PUBLIC_URL` when the service is deployed behind a
-public HTTPS route.

@@ -1,8 +1,7 @@
-pandas==3.0.6
-scikit-learn==1.9.1
 requests==2.34.2
 python-dotenv==1.2.3
-a2a-sdk[http-server]==1.2.0
+pandas==3.0.6
+scikit-learn==1.9.1
+hdbcli
 fastapi==0.141.1
 uvicorn==0.54.0
-tabpfn>=6.0.0
