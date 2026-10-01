@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 # Cloud Foundry supplies PORT. A2A_PUBLIC_URL must be the externally reachable
 # route, never the internal host/port used by uvicorn.
-HOST = os.getenv("HOST", "127.0.0.1")
-PORT = int(os.getenv("PORT", "8000"))
-base_url = os.getenv("A2A_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "1000"))
+base_url = os.getenv("A2A_PUBLIC_URL", "http://localhost:1000").rstrip("/")
 
 capabilities = AgentCapabilities(streaming=True, push_notifications=True)
 skill = AgentSkill(

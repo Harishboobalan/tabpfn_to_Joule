@@ -19,7 +19,7 @@ Create `app/.env` (or keep `.env` at the repository root) with the existing `HAN
 ```powershell
 cd app
 pip install -r requirements.txt
-python app.py
+python app.py   # listens on 0.0.0.0:1000 (override with HOST / PORT)
 ```
 
 In another terminal:

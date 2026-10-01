@@ -13,7 +13,7 @@ from a2a.types import Role, SendMessageConfiguration, SendMessageRequest, TaskSt
 
 
 async def main() -> None:
-    agent_url = os.getenv("A2A_AGENT_URL", "http://localhost:8000")
+    agent_url = os.getenv("A2A_AGENT_URL", "http://localhost:1000")
     timeout_seconds = float(os.getenv("A2A_CLIENT_TIMEOUT", "300"))
     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=10)) as http_client:
         try:
