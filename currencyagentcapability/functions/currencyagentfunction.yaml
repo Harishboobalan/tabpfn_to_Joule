@@ -1,0 +1,36 @@
+parameters:
+  - name: contextId
+    optional: true
+  - name: taskId
+    optional: true
+
+action_groups:
+  - actions:
+      - type: status-update
+        message: <? "Running the HANA TabPFN model comparison..." ?>
+
+      - type: agent-request
+        agent_type: remote
+        system_alias: HanaTabPFNAgent
+        body: >
+          <? (contextId == null || contextId.isEmpty()) && (taskId == null || taskId.isEmpty())
+             ? null
+             : '{ "contextId": "' + contextId + '", "taskId": "' + taskId + '" }' ?>
+        result_variable: result
+
+      - type: set-variables
+        variables:
+          - name: contextId
+            value: <? result.body.contextId ?>
+          - name: taskId
+            value: <? result.body.id ?>
+
+      - type: message
+        message:
+          type: text
+          content: "<? result.body.status.message.parts[0].text ?>"
+          markdown: true
+
+result:
+  contextId: "<? contextId ?>"
+  taskId: "<? taskId ?>"

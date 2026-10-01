@@ -1,0 +1,15 @@
+applications:
+  - name: hana-tabpfn-a2a-agent
+    memory: 1G
+    disk_quota: 2G
+    instances: 1
+    buildpacks:
+      - python_buildpack
+    command: python app.py
+    env:
+      AICORE_RESOURCE_GROUP: default
+      # Set this to the public Cloud Foundry route after deployment.
+      A2A_PUBLIC_URL: https://hana-tabpfn-a2a-agent.example.cfapps.<region>.hana.ondemand.com
+    # Bind the SAP AI Core service instance that supplies the AICORE_* credentials.
+    # services:
+    #   - <your-ai-core-service-instance>

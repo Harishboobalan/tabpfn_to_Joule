@@ -1,0 +1,17 @@
+schema_version: 3.28.0
+
+metadata:
+  namespace: joule.ext
+  name: hana_tabpfn_comparison_a2a
+  version: 1.0.0
+  display_name: "HANA TabPFN Model Comparison"
+  description: >
+    Use this capability when the user asks to evaluate a classification target
+    in an SAP HANA table or compare TabPFN accuracy with Random Forest, SVM,
+    and Logistic Regression.
+
+system_aliases:
+  HanaTabPFNAgent:
+    # Create a BTP destination with this exact name that points to the public
+    # Cloud Foundry URL of this A2A agent.
+    destination: HANA_TABPFN_AGENT_A2A

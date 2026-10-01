@@ -1,0 +1,21 @@
+description: >
+  Invoke this capability when the user wants a TabPFN classification prediction,
+  accuracy score, or comparison with Random Forest, SVM, and Logistic Regression
+  for a labeled SAP HANA table. Examples: "Compare TabPFN with SVM for the
+  Survived target column", "Evaluate the customer churn target", or "Run a
+  model comparison for the PASSENGERS table using Survived as the target."
+
+target:
+  type: function
+  name: currencyagentfunction
+  parameters:
+    - name: contextId
+      value: $capability_context.contextId
+    - name: taskId
+      value: $capability_context.taskId
+
+capability_context:
+  - name: contextId
+    value: $target_result.contextId
+  - name: taskId
+    value: $target_result.taskId

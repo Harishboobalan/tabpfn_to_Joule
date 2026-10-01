@@ -1,0 +1,7 @@
+schema_version: 1.4.0
+name: hana_tabpfn_comparison_a2a
+
+capabilities:
+  - type: local
+    name: hana_tabpfn_comparison_a2a
+    folder: ./currencyagentcapability

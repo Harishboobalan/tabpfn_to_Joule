@@ -1,58 +1,41 @@
-# HANA-to-TabPFN Comparison
+# HANA TabPFN A2A Agent
 
-Fetch a labeled table from SAP HANA, predict through the SAP AI Core TabPFN
-deployment, and compare accuracy with Random Forest, SVM, and Logistic
-Regression.
+The application is in `app/` and exposes the SAP HANA-to-TabPFN comparison as an A2A agent.
 
-## Project structure
+## Files
 
-- `config.py` — `.env` loading and configuration helpers.
-- `hana_client.py` — secure HANA table reader.
-- `sap_ai_core.py` — SAP AI Core OAuth and TabPFN deployment client.
-- `comparison.py` — shared train/holdout comparison logic.
-- `run_hana_comparison.py` — command-line entry point.
-- `main.py` — one FastAPI comparison route.
+- `app/agent.py` — reads HANA data, invokes TabPFN, and scores the baseline models.
+- `app/agent_executor.py` — maps A2A tasks to the comparison agent and streams a result artifact.
+- `app/app.py` — creates the Agent Card and FastAPI/A2A routes.
+- `app/manifest.yaml` — Cloud Foundry deployment configuration.
+- `app/test_client.py` — sends a sample A2A request.
 
-## `.env`
+## Local run
 
-```text
-HANA_HOST=...
-HANA_PORT=443
-HANA_USER=...
-HANA_PASSWORD=...
-HANA_SCHEMA=...
-
-AICORE_AUTH_URL=...
-AICORE_CLIENT_ID=...
-AICORE_CLIENT_SECRET=...
-AICORE_API_URL=...
-AICORE_RESOURCE_GROUP=default
-TABPFN_DEPLOYMENT_ID=...
-```
-
-For HANA Cloud, encrypted connections are enabled by default. Set
-`HANA_SSL_VALIDATE_CERTIFICATE=false` only when your environment requires it.
-
-## Run
+Create `app/.env` (or keep `.env` at the repository root) with the existing `HANA_*`, `AICORE_*`, `TABPFN_DEPLOYMENT_ID`, and optional `HANA_TABLE` values.
 
 ```powershell
+cd app
 pip install -r requirements.txt
-python run_hana_comparison.py --table YOUR_TABLE --target YOUR_TARGET_COLUMN
+python app.py
 ```
 
-The command reads `HANA_SCHEMA.YOUR_TABLE`, creates one reproducible 80/20
-holdout split, writes predictions and all accuracy scores to `comparison.json`,
-and prints the model comparison.
-
-## FastAPI route
+In another terminal:
 
 ```powershell
-uvicorn main:app --host 0.0.0.0 --port 8080
+cd app
+$env:TARGET_COLUMN = "Survived"
+python test_client.py
 ```
 
-Call `POST /compare` with only the target column. The table name comes from
-`HANA_TABLE` in `.env`:
+The request is text containing JSON. `target_column` is required; `table_name` and `test_size` are optional:
 
 ```json
-{"target_column": "Survived"}
+{"target_column":"Survived","table_name":"PASSENGERS","test_size":0.2}
 ```
+
+The Agent Card is at `/.well-known/agent-card.json`; JSON-RPC is at `/`, with A2A REST endpoints also enabled.
+
+## Cloud Foundry
+
+Set `A2A_PUBLIC_URL` in `manifest.yaml` to the public route and uncomment the `services` section with the bound SAP AI Core service instance. Then run `cf push` from the `app` directory.

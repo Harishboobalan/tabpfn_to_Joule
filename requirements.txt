@@ -1,7 +1,7 @@
+a2a-sdk[fastapi]>=1.0,<2.0
 requests==2.34.2
 python-dotenv==1.2.3
 pandas==3.0.6
 scikit-learn==1.9.1
 hdbcli
-fastapi==0.141.1
 uvicorn==0.54.0
