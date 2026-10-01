@@ -7,7 +7,7 @@ from a2a.helpers import new_task_from_user_message, new_text_artifact_update_eve
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.types import TaskState
-from agent import TabPFNComparisonAgent
+from agent import TabPFNComparisonAgent, summarize
 
 class TabPFNComparisonExecutor(AgentExecutor):
     def __init__(self) -> None:
@@ -40,7 +40,8 @@ class TabPFNComparisonExecutor(AgentExecutor):
                     task.id,
                     task.context_id,
                     TaskState.TASK_STATE_COMPLETED,
-                    "Comparison complete.",
+                    # Joule shows the final status message, so it carries the readable summary.
+                    summarize(result),
                 )
             )
         except Exception as exc:

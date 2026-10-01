@@ -138,19 +138,79 @@ def _baseline_scores(X_train, y_train, X_test, y_test, tabpfn_predictions: list)
     return scores
 
 
+_NAME = r"[\"'`]?([A-Za-z_][A-Za-z0-9_$]*)[\"'`]?"
+_NOT_NAMES = {"the", "a", "an", "this", "that", "my", "hana", "sap", "using", "with", "for", "in", "on", "of", "column", "target", "table", "is", "as"}
+_TABLE_PATTERNS = [re.compile(rf"\b{_NAME}\s+table\b", re.I), re.compile(rf"\btable\s+(?:named\s+|called\s+)?{_NAME}", re.I)]
+_TARGET_PATTERNS = [
+    re.compile(rf"\busing\s+{_NAME}\s+as\s+(?:the\s+)?(?:target|label)\b", re.I),
+    re.compile(rf"\b(?:target|label)(?:\s+column)?\s*(?:is|=|:|of)?\s*{_NAME}", re.I),
+    re.compile(rf"\b{_NAME}\s+(?:target|label|column)\b", re.I),
+]
+_TEST_SIZE_PATTERNS = [
+    re.compile(r"\btest[\s_-]*(?:size|split)\s*(?:of|=|:|is)?\s*(\d*\.?\d+)\s*(%)?", re.I),
+    re.compile(r"(\d*\.?\d+)\s*(%)\s*(?:test|holdout|hold-out)", re.I),
+]
+
+
+def _names(patterns: list[re.Pattern], text: str) -> list[str]:
+    return [match.group(1) for pattern in patterns for match in pattern.finditer(text) if match.group(1).lower() not in _NOT_NAMES]
+
+
+def _parse_text(text: str) -> dict:
+    """Extract table_name and test_size from a natural-language request such as one sent by Joule."""
+    request: dict = {}
+    if tables := _names(_TABLE_PATTERNS, text):
+        request["table_name"] = tables[0]
+    for pattern in _TEST_SIZE_PATTERNS:
+        if match := pattern.search(text):
+            value = float(match.group(1))
+            request["test_size"] = value / 100 if match.group(2) or value >= 1 else value
+            break
+    return request
+
+
+def _parse_request(user_input: str) -> tuple[dict, bool]:
+    """Return the request and whether it was structured JSON (otherwise natural language)."""
+    try:
+        request = json.loads(user_input)
+    except json.JSONDecodeError:
+        return _parse_text(user_input), False
+    if not isinstance(request, dict):
+        raise ValueError("A JSON request must be an object with target_column, optional table_name, and optional test_size.")
+    return request, True
+
+
+def _target_from_text(text: str, columns: list[str]) -> str:
+    by_lower = {column.lower(): column for column in columns}
+    for name in _names(_TARGET_PATTERNS, text):
+        if name.lower() in by_lower:
+            return by_lower[name.lower()]
+    mentioned = [column for column in columns if re.search(rf"(?<![A-Za-z0-9_$]){re.escape(column)}(?![A-Za-z0-9_$])", text, re.I)]
+    if len(mentioned) == 1:
+        return mentioned[0]
+    raise ValueError(f"Which column is the target? Available columns: {', '.join(columns)}.")
+
+
+def summarize(result: dict) -> str:
+    """Markdown summary of a comparison result, suitable for display in Joule."""
+    ranked = sorted(result["comparison"].items(), key=lambda item: item[1], reverse=True)
+    labels = {"tabpfn": "TabPFN", "random_forest": "Random Forest", "svm": "SVM", "logistic_regression": "Logistic Regression"}
+    rows = "\n".join(f"| {labels.get(name, name)} | {score:.2%} |" for name, score in ranked)
+    return (
+        f"Model comparison for **{result['target_column']}** in table **{result['table_name']}** "
+        f"(test size {result['test_size']:.0%}, {len(result['predictions'])} test rows):\n\n"
+        f"| Model | Accuracy |\n|---|---|\n{rows}\n\nBest model: **{labels.get(ranked[0][0], ranked[0][0])}**."
+    )
+
+
 class TabPFNComparisonAgent:
     """Runs a HANA table comparison requested through an A2A text message."""
 
     def invoke(self, user_input: str) -> dict:
-        """Accept JSON: target_column (required), table_name and test_size (optional)."""
-        try:
-            request = json.loads(user_input)
-        except json.JSONDecodeError as exc:
-            raise ValueError("Send a JSON object with target_column, optional table_name, and optional test_size.") from exc
-        if not isinstance(request, dict):
-            raise ValueError("The A2A message must contain a JSON object.")
+        """Accept JSON (target_column required; table_name and test_size optional) or a natural-language request."""
+        request, structured = _parse_request(user_input)
         target_column = request.get("target_column")
-        if not isinstance(target_column, str) or not target_column.strip():
+        if structured and (not isinstance(target_column, str) or not target_column.strip()):
             raise ValueError("target_column is required.")
         table_name = request.get("table_name") or _required("HANA_TABLE")
         if not isinstance(table_name, str):
@@ -159,6 +219,8 @@ class TabPFNComparisonAgent:
         if not isinstance(test_size, (int, float)) or isinstance(test_size, bool) or not 0 < test_size < 1:
             raise ValueError("test_size must be a number greater than 0 and less than 1.")
         data = _load_table(table_name)
+        if not structured:
+            target_column = _target_from_text(user_input, [str(column) for column in data.columns])
         if target_column not in data.columns:
             raise ValueError(f"Target column not found: {target_column}")
         X, y = data.drop(columns=[target_column]), data[target_column]

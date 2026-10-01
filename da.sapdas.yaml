@@ -4,4 +4,4 @@ name: hana_tabpfn_comparison_a2a
 capabilities:
   - type: local
     name: hana_tabpfn_comparison_a2a
-    folder: ./currencyagentcapability
+    folder: ./hana_tabpfn_capability

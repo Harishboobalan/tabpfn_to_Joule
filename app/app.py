@@ -7,6 +7,7 @@ removed ``A2AStarletteApplication`` wrapper.
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 import httpx
 from a2a.server.request_handlers import DefaultRequestHandler
@@ -43,7 +44,10 @@ skill = AgentSkill(
     name="Compare HANA classification models",
     description="Compares TabPFN, Random Forest, SVM, and Logistic Regression on an SAP HANA table.",
     tags=["hana", "tabpfn", "classification", "model-comparison"],
-    examples=['{"target_column":"Survived","table_name":"PASSENGERS","test_size":0.2}'],
+    examples=[
+        "Compare TabPFN with SVM for the Survived target column",
+        '{"target_column":"Survived","table_name":"PASSENGERS","test_size":0.2}',
+    ],
 )
 agent_card = AgentCard(
     name="HANA TabPFN Comparison Agent",
@@ -76,7 +80,14 @@ request_handler = DefaultRequestHandler(
     push_sender=push_sender,
 )
 
-app = FastAPI(title=agent_card.name, description=agent_card.description)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+    await httpx_client.aclose()
+
+
+app = FastAPI(title=agent_card.name, description=agent_card.description, lifespan=lifespan)
 add_a2a_routes_to_fastapi(
     app,
     agent_card_routes=(
@@ -86,11 +97,6 @@ add_a2a_routes_to_fastapi(
     jsonrpc_routes=create_jsonrpc_routes(request_handler, rpc_url="/", enable_v0_3_compat=True),
     rest_routes=create_rest_routes(request_handler, enable_v0_3_compat=True),
 )
-
-
-@app.on_event("shutdown")
-async def close_http_client() -> None:
-    await httpx_client.aclose()
 
 
 if __name__ == "__main__":
